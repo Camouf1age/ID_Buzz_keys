@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Nøkkellogg – EMP Secure</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, system-ui, 'Segoe UI', sans-serif; color: #1e293b; background: #f1f5f9; min-height: 100vh; overflow-x: hidden; }
+
+  .header { background: #1e293b; color: #fff; padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .header-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: #64748b; }
+  .header-title { font-size: 24px; font-weight: 700; }
+  .header-btn { background: none; border: 2px solid #475569; color: #94a3b8; border-radius: 12px; padding: 12px 20px; font-size: 16px; cursor: pointer; font-weight: 600; }
+  .header-btn.active { border-color: #3b82f6; color: #60a5fa; }
+
+  .view { display: none; padding: 24px; max-width: 900px; margin: 0 auto; }
+  .view.active { display: block; }
+
+  .status-card { border-radius: 20px; padding: 48px 32px; text-align: center; margin-bottom: 28px; }
+  .status-card.available { background: #dcfce7; border: 2px solid #86efac; }
+  .status-card.out { background: #fef3c7; border: 2px solid #fbbf24; }
+  .status-icon { font-size: 72px; margin-bottom: 12px; }
+  .status-label { font-size: 28px; font-weight: 700; }
+  .status-details { font-size: 20px; color: #92400e; margin-top: 20px; line-height: 2; }
+  .btn-main { width: 100%; padding: 24px; border-radius: 16px; border: none; font-size: 24px; font-weight: 700; cursor: pointer; min-height: 80px; }
+  .btn-green { background: #16a34a; color: #fff; }
+  .btn-blue { background: #2563eb; color: #fff; }
+
+  .wizard-step { text-align: center; }
+  .wizard-title { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .wizard-subtitle { font-size: 18px; color: #64748b; margin-bottom: 28px; }
+  .wizard-back { display: inline-flex; align-items: center; gap: 8px; background: none; border: none; color: #64748b; font-size: 18px; cursor: pointer; margin-bottom: 20px; padding: 10px 16px; border-radius: 10px; }
+  .wizard-back:active { background: #e2e8f0; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 12px; border-radius: 16px; border: 3px solid #e2e8f0; background: #fff; cursor: pointer; transition: all 0.12s; min-height: 150px; }
+  .card:active { transform: scale(0.96); }
+  .card-avatar { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 12px; flex-shrink: 0; }
+  .card-label { font-size: 18px; font-weight: 600; text-align: center; word-break: break-word; line-height: 1.3; }
+  .card-add { border: 3px dashed #cbd5e1; background: #f8fafc; }
+  .card-add .card-avatar { background: #e2e8f0; color: #94a3b8; font-size: 36px; }
+  .card-add .card-label { color: #94a3b8; }
+
+  .confirm-card { background: #fff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: left; }
+  .confirm-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid #f1f5f9; font-size: 20px; }
+  .confirm-row:last-child { border-bottom: none; }
+  .confirm-row .card-avatar { width: 48px; height: 48px; font-size: 18px; margin-bottom: 0; }
+  .confirm-label { color: #94a3b8; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .confirm-value { font-weight: 600; }
+
+  .override-banner { background: #fef3c7; border: 2px solid #fbbf24; border-radius: 16px; padding: 20px; margin-bottom: 24px; font-size: 18px; text-align: left; }
+  .override-banner strong { display: block; margin-bottom: 4px; font-size: 20px; }
+  .override-note { width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 18px; margin-top: 12px; min-height: 70px; resize: vertical; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 24px; }
+  .modal { background: #fff; border-radius: 20px; padding: 32px; width: 100%; max-width: 480px; }
+  .modal h3 { font-size: 24px; margin-bottom: 16px; }
+  .modal input { width: 100%; padding: 18px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 22px; margin-bottom: 16px; outline: none; }
+  .modal input:focus { border-color: #2563eb; }
+  .modal-btns { display: flex; gap: 12px; }
+  .modal-btns button { flex: 1; padding: 18px; border-radius: 12px; font-size: 20px; font-weight: 700; cursor: pointer; border: none; min-height: 64px; }
+  .modal-cancel { background: #f1f5f9; color: #64748b; }
+  .modal-ok { background: #2563eb; color: #fff; }
+
+  .log-entry { background: #fff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 14px; font-size: 18px; line-height: 1.8; }
+  .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .log-header strong { font-size: 20px; }
+  .log-label { color: #64748b; }
+  .override-badge { background: #fbbf24; color: #78350f; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 700; text-transform: uppercase; }
+  .log-override-note { color: #92400e; margin-top: 8px; font-style: italic; }
+
+  .export-box { background: #fff; border: 2px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+  .export-label { font-size: 14px; font-weight: 700; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .export-dates { display: flex; gap: 12px; margin-bottom: 14px; }
+  .export-dates label { flex: 1; }
+  .export-dates span { font-size: 14px; color: #94a3b8; display: block; margin-bottom: 4px; }
+  .export-dates input { padding: 14px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 18px; min-height: 56px; width: 100%; }
+  .export-actions { display: flex; gap: 12px; }
+  .btn-sm { padding: 16px 24px; border-radius: 12px; font-size: 18px; font-weight: 600; cursor: pointer; border: none; min-height: 56px; }
+  .btn-dark { background: #1e293b; color: #fff; }
+  .btn-outline { border: 2px solid #cbd5e1; background: #fff; color: #64748b; padding: 16px 20px; border-radius: 12px; font-size: 18px; cursor: pointer; }
+  .export-count { font-size: 15px; color: #94a3b8; margin-top: 10px; }
+
+  .section-title { font-size: 22px; font-weight: 700; margin-bottom: 14px; }
+  .add-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .add-row input { flex: 1; padding: 16px 18px; border-radius: 12px; border: 2px solid #cbd5e1; font-size: 20px; outline: none; }
+  .btn-add { padding: 14px 24px; border-radius: 12px; border: none; background: #2563eb; color: #fff; font-weight: 700; font-size: 22px; cursor: pointer; min-width: 60px; }
+  .chip { display: inline-flex; align-items: center; gap: 10px; background: #fff; border: 2px solid #e2e8f0; border-radius: 24px; padding: 10px 18px; font-size: 18px; margin: 0 8px 10px 0; }
+  .chip-x { border: none; background: #fee2e2; color: #dc2626; cursor: pointer; font-weight: 700; font-size: 18px; padding: 6px 12px; border-radius: 50%; min-width: 38px; min-height: 38px; display: flex; align-items: center; justify-content: center; }
+  .section-gap { margin-bottom: 36px; }
+  .empty { color: #94a3b8; text-align: center; padding: 60px 20px; font-size: 20px; }
+  h3 { font-size: 24px; margin: 0 0 20px; }
+  .hidden { display: none !important; }
+  .loading { text-align: center; padding: 60px; color: #94a3b8; font-size: 20px; }
+  .error-box { background: #fef2f2; color: #dc2626; padding: 14px; border-radius: 10px; font-size: 18px; margin-bottom: 16px; }
+  .conn-error { background: #fef2f2; border: 2px solid #fca5a5; border-radius: 16px; padding: 32px; text-align: center; margin: 40px 24px; }
+  .conn-error h2 { color: #dc2626; margin-bottom: 12px; }
+  .conn-error p { color: #64748b; font-size: 16px; line-height: 1.6; }
+  .conn-error code { background: #fee2e2; padding: 2px 8px; border-radius: 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-sub">EMP Secure</div>
+    <div class="header-title">Nøkkellogg</div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="header-btn" id="nav-log">📋 Logg</button>
+    <button class="header-btn" id="nav-settings">⚙️ Innst.</button>
+  </div>
+</div>
+
+<div id="view-status" class="view active"><div class="loading">Kobler til...</div></div>
+<div id="view-wizard" class="view"></div>
+
+<div id="view-log" class="view">
+  <h3>Historikk</h3>
+  <div class="export-box">
+    <div class="export-label">Eksporter logg</div>
+    <div class="export-dates">
+      <label><span>Fra</span><input type="date" id="export-from"></label>
+      <label><span>Til</span><input type="date" id="export-to"></label>
+    </div>
+    <div class="export-actions">
+      <button id="btn-export" class="btn-sm btn-dark" style="flex:1">📄 Eksporter PDF</button>
+      <button id="btn-export-reset" class="btn-outline hidden">Nullstill</button>
+    </div>
+    <div id="export-count" class="export-count"></div>
+  </div>
+  <div id="log-list"></div>
+</div>
+
+<div id="view-settings" class="view">
+  <h3>Innstillinger</h3>
+  <div class="section-title">Sjåfører</div>
+  <div class="add-row"><input type="text" id="add-driver" placeholder="Legg til sjåfør..."><button class="btn-add" id="btn-add-driver">+</button></div>
+  <div id="chips-drivers" class="section-gap"></div>
+  <div class="section-title">Kunder</div>
+  <div class="add-row"><input type="text" id="add-customer" placeholder="Legg til kunde..."><button class="btn-add" id="btn-add-customer">+</button></div>
+  <div id="chips-customers" class="section-gap"></div>
+  <div class="section-title">Destinasjoner</div>
+  <div class="add-row"><input type="text" id="add-dest" placeholder="Legg til destinasjon..."><button class="btn-add" id="btn-add-dest">+</button></div>
+  <div id="chips-dests" class="section-gap"></div>
+</div>
+
+<div id="modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="modal-title"></h3>
+    <input type="text" id="modal-input">
+    <div class="modal-btns">
+      <button class="modal-cancel" id="modal-cancel">Avbryt</button>
+      <button class="modal-ok" id="modal-ok">Legg til</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =====================================================
+// FILL IN YOUR SUPABASE CREDENTIALS HERE
+// =====================================================
+const SUPABASE_URL = 'https://bgxhsmrcagxgommwvntx.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJneGhzbXJjYWd4Z29tbXd2bnR4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MDM3OTcsImV4cCI6MjA5Nzk3OTc5N30.mh4K4R6PIsEfrH2XmmZ8fRcgIXh4Jw_Gd30Xyn2n23I';
+// =====================================================
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// App state (loaded from Supabase)
+let data = { drivers: [], customers: [], destinations: [], currentCheckout: null, log: [] };
+let wizardState = { step: 0, driver: '', customer: '', destination: '', override: false, overrideNote: '' };
+let currentView = 'status';
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('nb-NO', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function nameColor(name) {
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#6366f1','#a855f7','#ec4899','#06b6d4','#84cc16','#f43f5e'];
+  let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return colors[Math.abs(h) % colors.length];
+}
+function initials(name) {
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase() : name.slice(0,2).toUpperCase();
+}
+
+// --- DATA LAYER ---
+async function fetchAll() {
+  try {
+    const [drv, cust, dest, active, log] = await Promise.all([
+      sb.from('drivers').select('name').order('name'),
+      sb.from('customers').select('name').order('name'),
+      sb.from('destinations').select('name').order('name'),
+      sb.from('key_log').select('*').is('date_in', null).limit(1).maybeSingle(),
+      sb.from('key_log').select('*').not('date_in', 'is', null).order('date_out', { ascending: false }).limit(200),
+    ]);
+    data.drivers = (drv.data || []).map(r => r.name);
+    data.customers = (cust.data || []).map(r => r.name);
+    data.destinations = (dest.data || []).map(r => r.name);
+    data.currentCheckout = active.data ? {
+      id: active.data.id, driver: active.data.driver, customer: active.data.customer,
+      destination: active.data.destination, dateOut: active.data.date_out
+    } : null;
+    data.log = (log.data || []).map(r => ({
+      id: r.id, driver: r.driver, customer: r.customer, destination: r.destination,
+      dateOut: r.date_out, dateIn: r.date_in, overrideNote: r.override_note
+    }));
+    return true;
+  } catch (e) {
+    console.error('Fetch error:', e);
+    return false;
+  }
+}
+
+async function dbAddItem(table, name) {
+  const { error } = await sb.from(table).upsert({ name }, { onConflict: 'name' });
+  if (error) console.error(error);
+}
+async function dbRemoveItem(table, name) {
+  const { error } = await sb.from(table).delete().eq('name', name);
+  if (error) console.error(error);
+}
+async function dbCheckout(driver, customer, destination) {
+  const { error } = await sb.from('key_log').insert({
+    driver, customer, destination, date_out: new Date().toISOString()
+  });
+  if (error) console.error(error);
+}
+async function dbReturn(logId) {
+  const { error } = await sb.from('key_log').update({ date_in: new Date().toISOString() }).eq('id', logId);
+  if (error) console.error(error);
+}
+async function dbOverrideReturn(logId, note) {
+  const { error } = await sb.from('key_log').update({
+    date_in: new Date().toISOString(), override_note: note
+  }).eq('id', logId);
+  if (error) console.error(error);
+}
+
+// --- NAV ---
+function showView(name) {
+  currentView = name;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.getElementById('nav-log').classList.toggle('active', name === 'log');
+  document.getElementById('nav-settings').classList.toggle('active', name === 'settings');
+  if (name === 'status') renderStatus();
+  if (name === 'wizard') renderWizard();
+  if (name === 'log') renderLog();
+  if (name === 'settings') renderSettings();
+}
+document.getElementById('nav-log').addEventListener('click', () => showView(currentView === 'log' ? 'status' : 'log'));
+document.getElementById('nav-settings').addEventListener('click', () => showView(currentView === 'settings' ? 'status' : 'settings'));
+
+// --- STATUS ---
+function renderStatus() {
+  const el = document.getElementById('view-status');
+  const out = !!data.currentCheckout;
+  const c = data.currentCheckout;
+  el.innerHTML = `
+    <div class="status-card ${out ? 'out' : 'available'}">
+      <div class="status-icon">${out ? '🔑' : '🅿️'}</div>
+      <div class="status-label">${out ? 'Nøkkel ute' : 'Nøkkel tilgjengelig'}</div>
+      ${out ? `<div class="status-details">
+        <div><strong>Sjåfør:</strong> ${esc(c.driver)}</div>
+        <div><strong>Kunde:</strong> ${esc(c.customer)}</div>
+        <div><strong>Destinasjon:</strong> ${esc(c.destination)}</div>
+        <div><strong>Hentet:</strong> ${fmtDate(c.dateOut)}</div>
+      </div>` : ''}
+    </div>
+    ${out ? '<button class="btn-main btn-green" id="btn-return">✅ Lever tilbake nøkkel</button><div style="height:16px"></div><button class="btn-main btn-blue" id="btn-checkout-anyway" style="opacity:0.8;font-size:18px">🔑 Hent nøkkel (overstyring)</button>'
+          : '<button class="btn-main btn-blue" id="btn-start-checkout">🔑 Hent nøkkel</button>'}`;
+  if (out) {
+    document.getElementById('btn-return').addEventListener('click', async () => {
+      await dbReturn(c.id);
+      await fetchAll();
+      renderStatus();
+    });
+    document.getElementById('btn-checkout-anyway').addEventListener('click', () => {
+      wizardState = { step: 1, driver: '', customer: '', destination: '', override: true, overrideNote: '' };
+      showView('wizard');
+    });
+  } else {
+    document.getElementById('btn-start-checkout').addEventListener('click', () => {
+      wizardState = { step: 1, driver: '', customer: '', destination: '', override: false, overrideNote: '' };
+      showView('wizard');
+    });
+  }
+}
+
+// --- WIZARD ---
+function renderWizard() {
+  const el = document.getElementById('view-wizard');
+  const s = wizardState;
+
+  if (s.step === 1) {
+    el.innerHTML = `
+      <button class="wizard-back" id="wiz-back">← Tilbake</button>
+      <div class="wizard-step">
+        <div class="wizard-title">Hvem er du?</div>
+        <div class="wizard-subtitle">Velg sjåfør</div>
+        <div class="card-grid" id="driver-grid"></div>
+      </div>`;
+    const grid = document.getElementById('driver-grid');
+    data.drivers.forEach(name => {
+      grid.innerHTML += `<div class="card" data-name="${esc(name)}">
+        <div class="card-avatar" style="background:${nameColor(name)}">${initials(name)}</div>
+        <div class="card-label">${esc(name)}</div></div>`;
+    });
+    grid.querySelectorAll('.card').forEach(c => c.addEventListener('click', () => {
+      wizardState.driver = c.dataset.name; wizardState.step = 2; renderWizard();
+    }));
+    document.getElementById('wiz-back').addEventListener('click', () => showView('status'));
+
+  } else if (s.step === 2) {
+    el.innerHTML = `
+      <button class="wizard-back" id="wiz-back">← Tilbake</button>
+      <div class="wizard-step">
+        <div class="wizard-title">Hvilken kunde?</div>
+        <div class="wizard-subtitle">Velg eller legg til kunde</div>
+        <div class="card-grid" id="customer-grid"></div>
+      </div>`;
+    const grid = document.getElementById('customer-grid');
+    data.customers.forEach(name => {
+      grid.innerHTML += `<div class="card" data-name="${esc(name)}">
+        <div class="card-avatar" style="background:${nameColor(name)}">${initials(name)}</div>
+        <div class="card-label">${esc(name)}</div></div>`;
+    });
+    grid.innerHTML += `<div class="card card-add" id="add-new-customer"><div class="card-avatar">+</div><div class="card-label">Ny kunde</div></div>`;
+    grid.querySelectorAll('.card:not(.card-add)').forEach(c => c.addEventListener('click', () => {
+      wizardState.customer = c.dataset.name; wizardState.step = 3; renderWizard();
+    }));
+    document.getElementById('add-new-customer').addEventListener('click', () => {
+      showModal('Ny kunde', 'Kundenavn...', async val => {
+        await dbAddItem('customers', val);
+        await fetchAll();
+        wizardState.customer = val; wizardState.step = 3; renderWizard();
+      });
+    });
+    document.getElementById('wiz-back').addEventListener('click', () => { wizardState.step = 1; renderWizard(); });
+
+  } else if (s.step === 3) {
+    el.innerHTML = `
+      <button class="wizard-back" id="wiz-back">← Tilbake</button>
+      <div class="wizard-step">
+        <div class="wizard-title">Hvor skal du?</div>
+        <div class="wizard-subtitle">Velg eller legg til destinasjon</div>
+        <div class="card-grid" id="dest-grid"></div>
+      </div>`;
+    const grid = document.getElementById('dest-grid');
+    data.destinations.forEach(name => {
+      grid.innerHTML += `<div class="card" data-name="${esc(name)}">
+        <div class="card-avatar" style="background:${nameColor(name)}">${initials(name)}</div>
+        <div class="card-label">${esc(name)}</div></div>`;
+    });
+    grid.innerHTML += `<div class="card card-add" id="add-new-dest"><div class="card-avatar">+</div><div class="card-label">Ny destinasjon</div></div>`;
+    grid.querySelectorAll('.card:not(.card-add)').forEach(c => c.addEventListener('click', () => {
+      wizardState.destination = c.dataset.name; wizardState.step = 4; renderWizard();
+    }));
+    document.getElementById('add-new-dest').addEventListener('click', () => {
+      showModal('Ny destinasjon', 'Destinasjon...', async val => {
+        await dbAddItem('destinations', val);
+        await fetchAll();
+        wizardState.destination = val; wizardState.step = 4; renderWizard();
+      });
+    });
+    document.getElementById('wiz-back').addEventListener('click', () => { wizardState.step = 2; renderWizard(); });
+
+  } else if (s.step === 4) {
+    el.innerHTML = `
+      <button class="wizard-back" id="wiz-back">← Tilbake</button>
+      <div class="wizard-step">
+        <div class="wizard-title">Bekreft uthenting</div>
+        <div class="wizard-subtitle">Er dette riktig?</div>
+        ${s.override ? '<div id="override-section"></div>' : ''}
+        <div class="confirm-card">
+          <div class="confirm-row">
+            <div class="card-avatar" style="background:${nameColor(s.driver)};flex-shrink:0">${initials(s.driver)}</div>
+            <div><div class="confirm-label">Sjåfør</div><div class="confirm-value">${esc(s.driver)}</div></div>
+          </div>
+          <div class="confirm-row">
+            <div class="card-avatar" style="background:${nameColor(s.customer)};flex-shrink:0">${initials(s.customer)}</div>
+            <div><div class="confirm-label">Kunde</div><div class="confirm-value">${esc(s.customer)}</div></div>
+          </div>
+          <div class="confirm-row">
+            <div class="card-avatar" style="background:${nameColor(s.destination)};flex-shrink:0">${initials(s.destination)}</div>
+            <div><div class="confirm-label">Destinasjon</div><div class="confirm-value">${esc(s.destination)}</div></div>
+          </div>
+        </div>
+        <div id="confirm-error"></div>
+        <button class="btn-main btn-blue" id="btn-confirm">✅ Bekreft – Hent nøkkel</button>
+      </div>`;
+
+    if (s.override) {
+      document.getElementById('override-section').innerHTML = `<div class="override-banner">
+        <strong>Overstyring</strong>Nøkkel er ute hos ${esc(data.currentCheckout.driver)}. Forrige uthenting avsluttes automatisk.
+        <textarea class="override-note" id="inp-override-note" placeholder="Skriv begrunnelse for overstyring...">${esc(s.overrideNote||'')}</textarea>
+      </div>`;
+      document.getElementById('inp-override-note').addEventListener('input', e => { wizardState.overrideNote = e.target.value; });
+    }
+
+    document.getElementById('btn-confirm').addEventListener('click', async () => {
+      if (s.override) {
+        const note = (document.getElementById('inp-override-note')?.value || '').trim();
+        if (!note) { document.getElementById('confirm-error').innerHTML = '<div class="error-box">Overstyring krever en merknad.</div>'; return; }
+        await dbOverrideReturn(data.currentCheckout.id, note);
+      }
+      await dbCheckout(s.driver, s.customer, s.destination);
+      await fetchAll();
+      showView('status');
+    });
+    document.getElementById('wiz-back').addEventListener('click', () => { wizardState.step = 3; renderWizard(); });
+  }
+}
+
+// --- MODAL ---
+let modalCallback = null;
+function showModal(title, placeholder, cb) {
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal-title').textContent = title;
+  const inp = document.getElementById('modal-input');
+  inp.placeholder = placeholder; inp.value = ''; inp.focus();
+  modalCallback = cb;
+}
+document.getElementById('modal-cancel').addEventListener('click', () => document.getElementById('modal').classList.add('hidden'));
+document.getElementById('modal-ok').addEventListener('click', () => {
+  const val = document.getElementById('modal-input').value.trim();
+  if (val && modalCallback) modalCallback(val);
+  document.getElementById('modal').classList.add('hidden');
+});
+document.getElementById('modal-input').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('modal-ok').click(); });
+
+// --- LOG ---
+function renderLog() {
+  const from = document.getElementById('export-from')?.value;
+  const to = document.getElementById('export-to')?.value;
+  const filtered = data.log.filter(e => {
+    if (from) { const d = new Date(from); d.setHours(0,0,0,0); if (new Date(e.dateOut) < d) return false; }
+    if (to) { const d = new Date(to); d.setHours(23,59,59,999); if (new Date(e.dateOut) > d) return false; }
+    return true;
+  });
+  document.getElementById('btn-export-reset').classList.toggle('hidden', !(from || to));
+  document.getElementById('export-count').textContent = `${filtered.length} av ${data.log.length} oppføringer`;
+  const list = document.getElementById('log-list');
+  if (!data.log.length) { list.innerHTML = '<div class="empty">Ingen registreringer ennå.</div>'; return; }
+  list.innerHTML = data.log.map(e => `
+    <div class="log-entry">
+      <div class="log-header"><strong>${esc(e.driver)}</strong>${e.overrideNote ? '<span class="override-badge">OVERSTYRT</span>':''}</div>
+      <div><span class="log-label">Kunde:</span> ${esc(e.customer)}</div>
+      <div><span class="log-label">Dest.:</span> ${esc(e.destination)}</div>
+      <div><span class="log-label">Ut:</span> ${fmtDate(e.dateOut)}</div>
+      <div><span class="log-label">Inn:</span> ${fmtDate(e.dateIn)}</div>
+      ${e.overrideNote ? `<div class="log-override-note">"${esc(e.overrideNote)}"</div>`:''}</div>`).join('');
+}
+document.getElementById('export-from').addEventListener('change', renderLog);
+document.getElementById('export-to').addEventListener('change', renderLog);
+document.getElementById('btn-export-reset').addEventListener('click', () => { document.getElementById('export-from').value=''; document.getElementById('export-to').value=''; renderLog(); });
+document.getElementById('btn-export').addEventListener('click', () => {
+  const from = document.getElementById('export-from').value, to = document.getElementById('export-to').value;
+  const entries = data.log.filter(e => {
+    if (from) { const d = new Date(from); d.setHours(0,0,0,0); if (new Date(e.dateOut) < d) return false; }
+    if (to) { const d = new Date(to); d.setHours(23,59,59,999); if (new Date(e.dateOut) > d) return false; }
+    return true;
+  });
+  if (!entries.length) { alert('Ingen oppføringer i valgt periode.'); return; }
+  const range = (from||to) ? `${from||'start'} — ${to||'nå'}` : 'Alle oppføringer';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Nøkkellogg</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:24px;color:#1e293b}h1{font-size:20px;margin-bottom:4px}.sub{font-size:13px;color:#64748b;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#1e293b;color:#fff;text-align:left;padding:8px 10px}td{padding:7px 10px;border-bottom:1px solid #e2e8f0}tr:nth-child(even) td{background:#f8fafc}.ov{color:#92400e;font-style:italic;font-size:11px}.ft{margin-top:20px;font-size:11px;color:#94a3b8}@media print{body{padding:12px}}</style></head><body><h1>EMP Secure — Nøkkellogg</h1><div class="sub">${range} | Eksportert ${fmtDate(new Date().toISOString())}</div><table><thead><tr><th>Sjåfør</th><th>Kunde</th><th>Destinasjon</th><th>Ut</th><th>Inn</th><th>Merknad</th></tr></thead><tbody>${entries.map(e=>`<tr><td>${esc(e.driver)}</td><td>${esc(e.customer)}</td><td>${esc(e.destination)}</td><td>${fmtDate(e.dateOut)}</td><td>${fmtDate(e.dateIn)}</td><td>${e.overrideNote?`<span class="ov">${esc(e.overrideNote)}</span>`:'—'}</td></tr>`).join('')}</tbody></table><div class="ft">${entries.length} oppføringer</div><script>window.onload=()=>window.print()<\/script></body></html>`;
+  window.open(URL.createObjectURL(new Blob([html],{type:'text/html'})),'_blank');
+});
+
+// --- SETTINGS ---
+function renderSettings() {
+  renderChips('chips-drivers', data.drivers, 'drivers');
+  renderChips('chips-customers', data.customers, 'customers');
+  renderChips('chips-dests', data.destinations, 'destinations');
+}
+function renderChips(id, items, table) {
+  const el = document.getElementById(id);
+  el.innerHTML = items.map(i => `<span class="chip"><span class="card-avatar" style="background:${nameColor(i)};width:32px;height:32px;font-size:13px;display:inline-flex;margin:0">${initials(i)}</span> ${esc(i)}<button class="chip-x" data-name="${esc(i)}" data-table="${table}">×</button></span>`).join('');
+  el.querySelectorAll('.chip-x').forEach(b => b.addEventListener('click', async () => {
+    await dbRemoveItem(b.dataset.table, b.dataset.name);
+    await fetchAll();
+    renderSettings();
+  }));
+}
+async function addItemSetting(inputId, table) {
+  const inp = document.getElementById(inputId);
+  const val = inp.value.trim();
+  if (!val) return;
+  await dbAddItem(table, val);
+  await fetchAll();
+  renderSettings();
+  inp.value = '';
+}
+document.getElementById('btn-add-driver').addEventListener('click', () => addItemSetting('add-driver', 'drivers'));
+document.getElementById('btn-add-customer').addEventListener('click', () => addItemSetting('add-customer', 'customers'));
+document.getElementById('btn-add-dest').addEventListener('click', () => addItemSetting('add-dest', 'destinations'));
+['add-driver','add-customer','add-dest'].forEach((id,i) => {
+  const tables = ['drivers','customers','destinations'];
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') addItemSetting(id, tables[i]); });
+});
+
+// --- INIT ---
+(async () => {
+  const ok = await fetchAll();
+  if (ok) {
+    renderStatus();
+  } else {
+    document.getElementById('view-status').innerHTML = `<div class="conn-error">
+      <h2>Kan ikke koble til database</h2>
+      <p>Sjekk at <code>SUPABASE_URL</code> og <code>SUPABASE_ANON_KEY</code> er riktig satt øverst i filen, og at du har internett-tilgang.</p>
+    </div>`;
+  }
+})();
+</script>
+</body>
+</html>
